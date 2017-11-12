@@ -21,11 +21,10 @@ __author__ = 'aje'
 import sys
 import re
 import datetime
-import pymongo
+
+
 
 # The Blog Post Data Access Object handles interactions with the Posts collection
-
-
 class BlogPostDAO:
 
     # constructor for the class
@@ -39,16 +38,16 @@ class BlogPostDAO:
 
         # fix up the permalink to not include whitespace
 
-        exp = re.compile('\W')  # match anything not alphanumeric
+        exp = re.compile('\W') # match anything not alphanumeric
         whitespace = re.compile('\s')
-        temp_title = whitespace.sub("_", title)
+        temp_title = whitespace.sub("_",title)
         permalink = exp.sub('', temp_title)
 
         # Build a new post
         post = {"title": title,
                 "author": author,
                 "body": post,
-                "permalink": permalink,
+                "permalink":permalink,
                 "tags": tags_array,
                 "comments": [],
                 "date": datetime.datetime.utcnow()}
@@ -56,32 +55,48 @@ class BlogPostDAO:
         # now insert the post
         try:
             self.posts.insert_one(post)
+            print "Inserting the post"
         except:
             print "Error inserting post"
             print "Unexpected error:", sys.exc_info()[0]
 
         return permalink
 
-    # returns an array of num_posts posts, reverse ordered by date.
+    # returns an array of num_posts posts, reverse ordered
     def get_posts(self, num_posts):
 
-        cursor = self.posts.find()
-        cursor = cursor.limit(num_posts)
-        cursor = cursor.sort([('date', pymongo.DESCENDING)])
-
+        cursor = self.posts.find().sort('date', direction=-1).limit(num_posts)
         l = []
 
         for post in cursor:
-            post['date'] = post['date'].strftime(
-                "%A, %B %d %Y at %I:%M%p")  # fix up date
+            post['date'] = post['date'].strftime("%A, %B %d %Y at %I:%M%p") # fix up date
             if 'tags' not in post:
-                post['tags'] = []  # fill it in if its not there already
+                post['tags'] = [] # fill it in if its not there already
             if 'comments' not in post:
                 post['comments'] = []
 
-            l.append({'title': post['title'],
-                      'body': post['body'],
-                      'post_date': post['date'],
+            l.append({'title':post['title'], 'body':post['body'], 'post_date':post['date'],
+                      'permalink':post['permalink'],
+                      'tags':post['tags'],
+                      'author':post['author'],
+                      'comments':post['comments']})
+
+        return l
+
+    # returns an array of num_posts posts, reverse ordered, filtered by tag
+    def get_posts_by_tag(self, tag, num_posts):
+
+        cursor = self.posts.find({'tags':tag}).sort('date', direction=-1).limit(num_posts)
+        l = []
+
+        for post in cursor:
+            post['date'] = post['date'].strftime("%A, %B %d %Y at %I:%M%p")     # fix up date
+            if 'tags' not in post:
+                post['tags'] = []           # fill it in if its not there already
+            if 'comments' not in post:
+                post['comments'] = []
+
+            l.append({'title': post['title'], 'body': post['body'], 'post_date': post['date'],
                       'permalink': post['permalink'],
                       'tags': post['tags'],
                       'author': post['author'],
@@ -95,6 +110,11 @@ class BlogPostDAO:
         post = self.posts.find_one({'permalink': permalink})
 
         if post is not None:
+            # fix up likes values. set to zero if data is not present
+            for comment in post['comments']:
+                if 'num_likes' not in comment:
+                    comment['num_likes'] = 0
+
             # fix up date
             post['date'] = post['date'].strftime("%A, %B %d %Y at %I:%M%p")
 
@@ -109,12 +129,21 @@ class BlogPostDAO:
             comment['email'] = email
 
         try:
+            update_result = self.posts.update_one({'permalink': permalink}, {'$push': {'comments': comment}})
+                                               
 
-            result = self.posts.update_one({'permalink': permalink},
-                                           {'$push': {'comments': comment}})
-            return result.matched_count
+            return update_result.matched_count
 
         except:
             print "Could not update the collection, error"
             print "Unexpected error:", sys.exc_info()[0]
             return 0
+
+
+
+
+
+
+
+
+
