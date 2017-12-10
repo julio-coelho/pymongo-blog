@@ -16,14 +16,14 @@
 # limitations under the License.
 #
 #
-import hmac
 import random
 import string
 import hashlib
 import pymongo
 
 
-# The User Data Access Object handles all interactions with the User collection.
+# The User Data Access Object handles all interactions with the 'users'
+# collection.
 class UserDAO:
 
     def __init__(self, db):
@@ -38,15 +38,15 @@ class UserDAO:
             salt = salt + random.choice(string.ascii_letters)
         return salt
 
-    # implement the function make_pw_hash(name, pw) that returns a hashed password
-    # of the format:
+    # implement the function make_pw_hash(name, pw) that returns a hashed
+    # password of the format:
     # HASH(pw + salt),salt
     # use sha256
 
-    def make_pw_hash(self, pw,salt=None):
-        if salt == None:
-            salt = self.make_salt();
-        return hashlib.sha256(pw + salt).hexdigest()+","+ salt
+    def make_pw_hash(self, pw, salt=None):
+        if salt is None:
+            salt = self.make_salt()
+        return hashlib.sha256(pw+salt).hexdigest() + "," + salt
 
     # Validates a user login. Returns user record or None
     def validate_login(self, username, password):
@@ -70,7 +70,6 @@ class UserDAO:
         # Looks good
         return user
 
-
     # creates a new user in the users collection
     def add_user(self, username, password, email):
         password_hash = self.make_pw_hash(password)
@@ -84,10 +83,8 @@ class UserDAO:
         except pymongo.errors.OperationFailure:
             print "oops, mongo error"
             return False
-        except pymongo.errors.DuplicateKeyError as e:
+        except pymongo.errors.DuplicateKeyError:
             print "oops, username is already taken"
             return False
 
         return True
-
-
